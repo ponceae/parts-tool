@@ -24,7 +24,7 @@ Public Class PartRecord
 
         Me.Revision = rev
         Me.EffectiveDate = DateTime.Now
-        Me.IsActive = Active
+        Me.IsActive = active
     End Sub
 
     Public ReadOnly Property ProjectedProfitMargin As Double
