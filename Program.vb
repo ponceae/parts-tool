@@ -71,7 +71,10 @@ Module Program
                         catId <= 11 Then
                         
                         Dim parts = PartQueryService.GetPartsByCategory(catId)
-                        DisplayParts(parts, $"PARTS FOR CATEGORY ID #{catId}")
+                        Dim categoryName As String =
+                            PartQueryService.GetCategoryName(catId)
+
+                        DisplayParts(parts, $"PARTS FOR '{categoryName}'")
                     Else
                         Console.WriteLine(
                             "Invalid Category ID. Must be an integer between 0 and 11."

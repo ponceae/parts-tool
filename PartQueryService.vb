@@ -165,6 +165,33 @@ Public Module PartQueryService
     End Function
 
     ''' <summary>
+    ''' Look up the human readable category name by its CategoryID
+    ''' </summary>
+    Public Function GetCategoryName(catId As Integer) As String
+        Dim categoryName As String = $"Category #{catId}"
+        Dim sql As String = "
+            Select CategoryName 
+            FROM Categories 
+            WHERE CategoryID = @catId"
+        
+        Try 
+            Using conn As SqliteConnection = GetOpenConnection()
+                Using cmd As New SqliteCommand(sql, conn)
+                    cmd.Parameters.AddWithValue("@catId", catId)
+                    Dim result = cmd.ExecuteScalar()
+                    If result IsNot Nothing AndAlso result IsNot DBNull.Value Then
+                        categoryName = result.ToString()
+                    End If
+                End Using
+            End Using
+        Catch e As Exception
+            Console.WriteLine($"[Query Error - GetCategoryName]: {e.Message}")
+        End Try
+
+        Return categoryName
+    End Function
+
+    ''' <summary>
     ''' Case insensitive keyword search on description
     ''' </summary>
     Public Function SearchPartsByKeyword(keyword As String) As List(Of PartRecord)

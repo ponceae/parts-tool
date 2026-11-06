@@ -122,7 +122,7 @@ Public Module DatabaseInitializer
 
                 For i As Integer = 1 to lines.Length - 1
                     Dim line As String = lines(i).Trim()
-                    If line.length > 0 Then
+                    If line.Length > 0 Then
                         Dim cols As String() = line.Split(","c)
 
                         If cols.Length >= 5 Then
