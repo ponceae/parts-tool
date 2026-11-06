@@ -1,16 +1,20 @@
-Imports System.Data.SQLite
+Imports System.Data
+Imports Microsoft.Data.Sqlite
 Imports System.IO
 Imports System.Collections.Generic
 
 Public Module DatabaseInitializer
-    Public ConnectionString As String = "Data Source=subaru_parts.db;Version=3;"
+    Public ConnectionString As String = "Data Source=subaru_parts.db"
 
-    Public Sub InitAndPopulateData(csvFilePath As String)
-        If Not File.Exists("subaru_parts.db") Then
-            SQLiteConnection.CreateFile("subaru_parts.db")
+    Public Sub InitAndPopulateData(
+        csvFilePath As String, 
+        Optional forceRecreate As Boolean = False
+    )
+        If forceRecreate AndAlso File.Exists("subaru_parts.db") Then
+            File.Delete("subaru_parts.db")
         End If
 
-        Using conn As New SQLiteConnection(ConnectionString)
+        Using conn As New SqliteConnection(ConnectionString)
             conn.Open()
 
             Dim createTablesSql As String = "
@@ -31,7 +35,7 @@ Public Module DatabaseInitializer
                     EffectiveDate TEXT NOT NULL
                 );"
 
-            Using cmd As New SQLiteCommand(createTablesSql, conn)
+            Using cmd As New SqliteCommand(createTablesSql, conn)
                 cmd.ExecuteNonQuery()
             End Using
 
@@ -40,14 +44,16 @@ Public Module DatabaseInitializer
             If File.Exists(csvFilePath) Then
                 SeedPartsFromCSV(conn, csvFilePath)
             Else
-                Console.WriteLine($"Warning: CSV file '{csvFilePath}' not found for seeding.")
+                Console.WriteLine(
+                    $"Warning: CSV file '{csvFilePath}' was not found for seeding."
+                )
             End If
         End Using
     End Sub
 
-    Private Sub SeedCategories(conn As SQLiteConnection)
+    Private Sub SeedCategories(conn As SqliteConnection)
         Dim checkSql As String = "SELECT COUNT(*) FROM Categories"
-        Using checkCmd As New SQLiteCommand(checkSql, conn)
+        Using checkCmd As New SqliteCommand(checkSql, conn)
             Dim count As Integer = Convert.ToInt32(checkCmd.ExecuteScalar())
             If count > 0 Then Return 
         End Using
@@ -68,11 +74,12 @@ Public Module DatabaseInitializer
         }
 
         Using transaction = conn.BeginTransaction()
-            Dim insertSql As String = "
-                INSERT INTO Categories (CategoryID, CategoryName) VALUES (@catId, @catName)"
-            Using cmd As New SQLiteCommand(insertSql, conn)
-                cmd.Parameters.Add("@catId", DbType.Int32)
-                cmd.Parameters.Add("@catName", DbType.String)
+            Dim insertSql As String = 
+            "INSERT INTO Categories (CategoryID, CategoryName) " &
+            "VALUES (@catId, @catName)"
+            Using cmd As New SqliteCommand(insertSql, conn, transaction)
+                cmd.Parameters.Add("@catId", SqliteType.Integer)
+                cmd.Parameters.Add("@catName", SqliteType.Text)
 
                 For Each kvp In categories
                     cmd.Parameters("@catId").Value = kvp.Key
@@ -86,9 +93,9 @@ Public Module DatabaseInitializer
         Console.WriteLine("Successfully seeded 12 categories into database.")
     End Sub
 
-    Private Sub SeedPartsFromCSV(conn As SQLiteConnection, csvFilePath As String)
+    Private Sub SeedPartsFromCSV(conn As SqliteConnection, csvFilePath As String)
         Dim checkSql As String = "SELECT COUNT(*) FROM parts"
-        Using checkCmd As New SQLiteCommand(checkSql, conn)
+        Using checkCmd As New SqliteCommand(checkSql, conn)
             Dim count As Integer = Convert.ToInt32(checkCmd.ExecuteScalar())
             If count > 0 Then Return
         End Using
@@ -105,13 +112,13 @@ Public Module DatabaseInitializer
                 )
                 VALUES (@partNum, @desc, @cost, @msrp, @catId, 1, 1, @effDate)"
 
-            Using cmd As New SQLiteCommand(insertSql, conn)
-                cmd.Parameters.Add("@partNum", DbType.String)
-                cmd.Parameters.Add("@desc", DbType.String)
-                cmd.Parameters.Add("@cost", DbType.Double)
-                cmd.Parameters.Add("@msrp", DbType.Double)
-                cmd.Parameters.Add("@catId", DbType.Int32)
-                cmd.Parameters.Add("@effDate", DbType.String)
+            Using cmd As New SqliteCommand(insertSql, conn, transaction)
+                cmd.Parameters.Add("@partNum", SqliteType.Text)
+                cmd.Parameters.Add("@desc", SqliteType.Text)
+                cmd.Parameters.Add("@cost", SqliteType.Real)
+                cmd.Parameters.Add("@msrp", SqliteType.Real)
+                cmd.Parameters.Add("@catId", SqliteType.Integer)
+                cmd.Parameters.Add("@effDate", SqliteType.Text)
 
                 For i As Integer = 1 to lines.Length - 1
                     Dim line As String = lines(i).Trim()
@@ -135,6 +142,8 @@ Public Module DatabaseInitializer
             transaction.Commit()
         End Using
 
-        Console.WriteLine($"Successfully seeded {insertedCount} parts into SQLite database")
+        Console.WriteLine(
+            $"Successfully seeded {insertedCount} parts into SQLite database"
+        )
     End Sub
 End Module

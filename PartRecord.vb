@@ -9,13 +9,15 @@ Public Class PartRecord
     Public Property EffectiveDate As DateTime
     Public Property IsActive As Boolean
 
-    Public Sub New(partNum As String, 
-                   desc As String, 
-                   cost As Double, 
-                   msrpVal As Double, 
-                   catId As Integer,
-                   Optional rev As Integer = 1,
-                   Optional active As Boolean = True)
+    Public Sub New(
+        partNum As String, 
+        desc As String, 
+        cost As Double, 
+        msrpVal As Double, 
+        catId As Integer,
+        Optional rev As Integer = 1,
+        Optional active As Boolean = True
+    )
         Me.PartNumber = partNum 
         Me.Description = desc
         Me.DealerCost = cost 
@@ -35,8 +37,8 @@ Public Class PartRecord
 
     Public Overrides Function ToString() As String 
         Dim status As String = If(IsActive, "ACTIVE", "HISTORICAL")
-        Return $"{PartNumber,-15} | {Description,-55} | Rev {Revision,2} | {status,-10} | " &
-               $"Cost: ${DealerCost,7:F2} | MSRP: ${MSRP,7:F2} | " &
+        Return $"{PartNumber,-15} | {Description,-55} | Rev {Revision,2} | " &
+               $"{status,-10} | Cost: ${DealerCost,7:F2} | MSRP: ${MSRP,7:F2} | " &
                $"Profit: ${ProjectedProfitMargin,7:F2} | Cat ID: {CategoryID,2}"
     End Function
 End Class
