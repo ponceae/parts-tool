@@ -35,8 +35,9 @@ Module Program
             Console.WriteLine("4. Search Parts by Description Keyword")
             Console.WriteLine("5. Search Parts by 5 Digit Prefix (Numeric)")
             Console.WriteLine("6. Lookup Active Replacement by Legacy Part Number")
-            Console.WriteLine("7. Exit")
-            Console.Write($"{vbCrLf}Select an Option (1-7):{vbCrLf}>")
+            Console.WriteLine("7. View Full Supersession Chain History")
+            Console.WriteLine("8. Exit")
+            Console.Write($"{vbCrLf}Select an Option (1-8):{vbCrLf}>")
 
             Dim choice As String = Console.ReadLine()?.Trim()
             Console.WriteLine()
@@ -107,7 +108,7 @@ Module Program
                 Case "6"
                     Console.Write(
                         $"Enter legacy part number to find active replacement " &
-                        $"(e.g. 15208AA160):{vbCrLf}>"
+                        $":{vbCrLf}>"
                     )
                     Dim legacyPartNum As String = Console.ReadLine()?.Trim()
                     If Not String.IsNullOrEmpty(legacyPartNum) Then 
@@ -127,10 +128,26 @@ Module Program
                         Console.WriteLine("Part number cannot be empty.")
                     End If
                 Case "7"
+                    Console.Write(
+                        $"Enter a part number to view full revision history " &
+                        $":{vbCrLf}>"
+                    )
+                    Dim inputPartNum As String = Console.ReadLine()?.Trim()
+                    If Not String.IsNullOrEmpty(inputPartNum) Then 
+                        Dim history = 
+                            PartQueryService.GetSupersessionHistory(inputPartNum)
+                        DisplayParts(
+                            history,
+                            $"FULL REVISION HISTORY FOR '{inputPartNum.ToUpper()}'"
+                        )
+                    Else
+                        Console.WriteLine("Part number cannot be empty.")
+                    End If
+                Case "8"
                     exitApp = True 
                     Console.WriteLine("Exiting Subaru Parts Tool.")
                 Case Else 
-                    Console.WriteLine("Invalid choice. Please select 1 through 7.")
+                    Console.WriteLine("Invalid choice. Please select 1 through 8.")
             End Select
 
             If Not exitApp Then

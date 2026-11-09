@@ -311,4 +311,69 @@ Public Module PartQueryService
 
         Return activePart
     End Function
+
+    ''' <summary>
+    ''' Retrieve the complete supersession chain regardless of which part in the chain
+    ''' is entered.
+    ''' </summary>
+    Public Function GetSupersessionHistory(partNum As String) As List(Of PartRecord)
+        Dim history as New List(Of PartRecord)()
+
+        Dim sql As String = "
+            WITH RECURSIVE
+                ActiveEndpoint AS (
+                    SELECT
+                        PartNumber,
+                        SupersededBy,
+                        IsActive
+                    FROM Parts
+                    WHERE
+                        UPPER(PartNumber) = UPPER(@partNum)
+                    UNION ALL
+                    SELECT
+                        p.PartNumber,
+                        p.SupersededBy,
+                        p.IsActive
+                    FROM Parts p
+                    JOIN 
+                        ActiveEndpoint ae ON p.PartNumber = ae.SupersededBy
+                ),
+                FullChain AS (
+                    SELECT *
+                    FROM Parts
+                    WHERE
+                        PartNumber = (
+                            SELECT PartNumber
+                            FROM ActiveEndpoint
+                            WHERE IsActive = 1
+                            LIMIT 1
+                        )
+                    UNION ALL
+                    SELECT p.*
+                    FROM Parts p
+                    JOIN FullChain fc ON p.SupersededBy = fc.PartNumber
+                )
+                SELECT * FROM FullChain ORDER BY Revision ASC;"
+        
+        
+        Try 
+            Using conn As SqliteConnection = GetOpenConnection()
+                Using cmd As New SqliteCommand(sql, conn)
+                    cmd.Parameters.AddWithValue("@partNum", partNum.Trim())
+
+                    Using reader As SqliteDataReader = cmd.ExecuteReader()
+                        While reader.Read()
+                            history.Add(MapReaderToPartRecord(reader))
+                        End While
+                    End Using
+                End Using
+            End Using
+        Catch e As Exception
+            Console.WriteLine(
+                $"[Query Error - GetSupersessionHistory]: {e.Message}"
+            )
+        End Try
+
+        Return history
+    End Function
 End Module
