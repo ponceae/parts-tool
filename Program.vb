@@ -17,7 +17,7 @@ Module Program
 
         Try 
             Console.WriteLine("Initializing database...")
-            DatabaseInitializer.InitAndPopulateData(csvFilePath, forceRecreate:=False)
+            DatabaseInitializer.InitAndPopulateData(csvFilePath, forceRecreate:=True)
             Console.WriteLine($"{vbCrLf}Database initialized.")
         Catch e as Exception
             Console.WriteLine($"Error: Failed to initialize database: {e.Message}")
@@ -34,8 +34,9 @@ Module Program
             Console.WriteLine("3. Filter Parts by Category (ID 0-11)")
             Console.WriteLine("4. Search Parts by Description Keyword")
             Console.WriteLine("5. Search Parts by 5 Digit Prefix (Numeric)")
-            Console.WriteLine("6. Exit")
-            Console.Write($"{vbCrLf}Select an Option (1-6):{vbCrLf}>")
+            Console.WriteLine("6. Lookup Active Replacement by Legacy Part Number")
+            Console.WriteLine("7. Exit")
+            Console.Write($"{vbCrLf}Select an Option (1-7):{vbCrLf}>")
 
             Dim choice As String = Console.ReadLine()?.Trim()
             Console.WriteLine()
@@ -50,8 +51,9 @@ Module Program
                     )
                     Dim input As String = Console.ReadLine()?.Trim()
                     Dim minProfit As Double = 50.0
-                    If Double.TryParse(input, minProfit) OrElse _
-                        String.IsNullOrEmpty(input) Then
+
+                    If String.IsNullOrEmpty(input) OrElse _
+                        Double.TryParse(input, minProfit) Then 
 
                         Dim parts = 
                             PartQueryService.GetHighProfitabilityParts(minProfit)
@@ -91,7 +93,6 @@ Module Program
                     Else
                         Console.WriteLine("Keyword cannot be empty.")
                     End If
-
                 Case "5"
                     Console.Write(
                         $"Enter 5 digit numeric prefix (e.g. 16546):{vbCrLf}>"
@@ -104,10 +105,32 @@ Module Program
                         Console.WriteLine("Prefix cannot be empty.")
                     End If
                 Case "6"
+                    Console.Write(
+                        $"Enter legacy part number to find active replacement " &
+                        $"(e.g. 15208AA160):{vbCrLf}>"
+                    )
+                    Dim legacyPartNum As String = Console.ReadLine()?.Trim()
+                    If Not String.IsNullOrEmpty(legacyPartNum) Then 
+                        Dim activePart As PartRecord = 
+                            PartQueryService.GetActiveReplacement(legacyPartNum)
+                        Console.WriteLine($" === SUPERSESSION REDIRECT RESULTS ===")
+                        If activePart IsNot Nothing Then 
+                            Console.WriteLine($"Original Part " &
+                                              $"Searched: {legacyPartNum.ToUpper()}")
+                            Console.WriteLine($"Active Replacement Found:") 
+                            Console.WriteLine(activePart.ToString())
+                        Else 
+                            Console.WriteLine($"No active replacement found for " &
+                                              $"part '{legacyPartNum}'")
+                        End If
+                    Else 
+                        Console.WriteLine("Part number cannot be empty.")
+                    End If
+                Case "7"
                     exitApp = True 
                     Console.WriteLine("Exiting Subaru Parts Tool.")
                 Case Else 
-                    Console.WriteLine("Invalid choice. Please select 1 through 6.")
+                    Console.WriteLine("Invalid choice. Please select 1 through 7.")
             End Select
 
             If Not exitApp Then
@@ -125,29 +148,8 @@ Module Program
             Return
         End If
 
-        Console.WriteLine(
-            "{0,-15} {1,-40} {2,10} {3,10} {4,10}", 
-            "Part Number", 
-            "Description",
-            "Cost",
-            "MSRP",
-            "Profit"
-        )
-        Console.WriteLine(New String("-"c, 90))
-
         For Each part In parts
-            Dim profit As Double = part.MSRP - part.DealerCost 
-            Console.WriteLine(
-                "{0,-15} {1,-40} {2,10:C2} {3,10:C2} {4,10:C2}",
-                part.PartNumber,
-                If(
-                    part.Description.Length > 37, 
-                    part.Description.Substring(0, 37) & "...", part.Description
-                ),
-                part.DealerCost,
-                part.MSRP,
-                profit
-            )
+            Console.WriteLine(part.ToString())
         Next
     End Sub
 End Module

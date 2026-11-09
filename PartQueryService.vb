@@ -9,6 +9,23 @@ Public Module PartQueryService
         Return conn
     End Function
 
+    Private Function MapReaderToPartRecord(reader As SqliteDataReader) As PartRecord 
+        Dim superByVal As String = If(reader("SupersededBy") Is DBNull.Value,
+                                      Nothing,
+                                      reader("SupersededBy").ToString())
+        
+        Return New PartRecord(
+            partNum:=reader.GetString(reader.GetOrdinal("PartNumber")),
+            desc:=reader.GetString(reader.GetOrdinal("Description")),
+            cost:=reader.GetDouble(reader.GetOrdinal("DealerCost")),
+            msrpVal:=reader.GetDouble(reader.GetOrdinal("MSRP")),
+            catId:=reader.GetInt32(reader.GetOrdinal("CategoryID")),
+            rev:=reader.GetInt32(reader.GetOrdinal("Revision")),
+            active:=Convert.ToBoolean(reader.GetInt32(reader.GetOrdinal("IsActive"))),
+            super:=superByVal
+        )
+    End Function
+
     ''' <summary>
     ''' Query all parts with their human readable category names.
     ''' </summary>
@@ -22,6 +39,9 @@ Public Module PartQueryService
                 p.DealerCost,
                 p.MSRP,
                 p.CategoryID,
+                p.Revision,
+                p.IsActive,
+                p.SupersededBy,
                 c.CategoryName
             FROM Parts p
             INNER JOIN Categories c On p.CategoryID = c.CategoryID
@@ -32,20 +52,7 @@ Public Module PartQueryService
                 Using cmd As New SqliteCommand(sql, conn)
                     Using reader As SqliteDataReader = cmd.ExecuteReader()
                         While reader.Read()
-                            Dim part As New PartRecord(
-                                partNum:=reader.GetString(
-                                    reader.GetOrdinal("PartNumber")
-                                ),
-                                desc:=reader.GetString(
-                                    reader.GetOrdinal("Description")
-                                ),
-                                cost:=reader.GetDouble(
-                                    reader.GetOrdinal("DealerCost")
-                                ),
-                                msrpVal:=reader.GetDouble(reader.GetOrdinal("MSRP")),
-                                catId:=reader.GetInt32(reader.GetOrdinal("CategoryID"))
-                            )
-                            results.Add(part)
+                            results.Add(MapReaderToPartRecord(reader))
                         End While
                     End Using
                 End Using
@@ -74,6 +81,9 @@ Public Module PartQueryService
                 DealerCost,
                 MSRP,
                 CategoryID,
+                Revision,
+                IsActive,
+                SupersededBy,
                 (MSRP - DealerCost) AS profitMargin
             FROM Parts
             WHERE (MSRP - DealerCost) >= @minProfit
@@ -86,20 +96,7 @@ Public Module PartQueryService
 
                     Using reader As SqliteDataReader = cmd.ExecuteReader()
                         While reader.Read()
-                            Dim part As New PartRecord(
-                                partNum:=reader.GetString(
-                                    reader.GetOrdinal("PartNumber")
-                                ),
-                                desc:=reader.GetString(
-                                    reader.GetOrdinal("Description")
-                                ),
-                                cost:=reader.GetDouble(
-                                    reader.GetOrdinal("DealerCost")
-                                ),
-                                msrpVal:=reader.GetDouble(reader.GetOrdinal("MSRP")),
-                                catId:=reader.GetInt32(reader.GetOrdinal("CategoryID"))
-                            )
-                            results.Add(part)
+                            results.Add(MapReaderToPartRecord(reader))
                         End While
                     End Using
                 End Using
@@ -125,9 +122,13 @@ Public Module PartQueryService
             Description,
             DealerCost,
             MSRP,
-            CategoryID
+            CategoryID,
+            Revision,
+            IsActive,
+            SupersededBy
         FROM Parts
         WHERE CategoryID = @catId
+          AND IsActive = 1
         ORDER BY PartNumber ASC"
 
         Try
@@ -137,20 +138,7 @@ Public Module PartQueryService
 
                     Using reader As SqliteDataReader = cmd.ExecuteReader()
                         While reader.Read()
-                            Dim part As New PartRecord(
-                                partNum:=reader.GetString(
-                                    reader.GetOrdinal("PartNumber")
-                                ),
-                                desc:=reader.GetString(
-                                    reader.GetOrdinal("Description")
-                                ),
-                                cost:=reader.GetDouble(
-                                    reader.GetOrdinal("DealerCost")
-                                ),
-                                msrpVal:=reader.GetDouble(reader.GetOrdinal("MSRP")),
-                                catId:=reader.GetInt32(reader.GetOrdinal("CategoryID"))
-                            )
-                            results.Add(part)
+                            results.Add(MapReaderToPartRecord(reader))
                         End While
                     End Using
                 End Using
@@ -203,7 +191,10 @@ Public Module PartQueryService
                 Description,
                 DealerCost,
                 MSRP,
-                CategoryID
+                CategoryID,
+                Revision,
+                IsActive,
+                SupersededBy
             FROM Parts
             WHERE Description LIKE @searchTerm
             ORDER BY Description ASC"
@@ -215,20 +206,7 @@ Public Module PartQueryService
 
                     Using reader As SqliteDataReader = cmd.ExecuteReader()
                         While reader.Read()
-                            Dim part As New PartRecord(
-                                partNum:=reader.GetString(
-                                    reader.GetOrdinal("PartNumber")
-                                ),
-                                desc:=reader.GetString(
-                                    reader.GetOrdinal("Description")
-                                ),
-                                cost:=reader.GetDouble(
-                                    reader.GetOrdinal("DealerCost")
-                                ),
-                                msrpVal:=reader.GetDouble(reader.GetOrdinal("MSRP")),
-                                catId:=reader.GetInt32(reader.GetOrdinal("CategoryID"))
-                            )
-                            results.Add(part)
+                            results.Add(MapReaderToPartRecord(reader))
                         End While
                     End Using
                 End Using
@@ -245,10 +223,9 @@ Public Module PartQueryService
     ''' <summary>
     ''' Query all active parts matching a specific 5 digit numeric prefix. Ignores
     ''' letter prefixed parts.
-    ''' <summary/>
+    ''' </summary>
     Public Function GetPartsByNumericPrefix(prefix As String) As List(Of PartRecord)
         Dim results As New List(Of PartRecord)()
-
         Dim cleanPrefix As String = prefix.Trim()
 
         Dim sql As String = "
@@ -257,10 +234,14 @@ Public Module PartQueryService
             Description,
             DealerCost,
             MSRP,
-            CategoryID
+            CategoryID,
+            Revision,
+            IsActive,
+            SupersededBy
         FROM Parts
         WHERE PartNumber GLOB '[0-9]*'
           AND SUBSTR(PartNumber, 1, 5) = @prefix
+          AND IsActive = 1
         ORDER BY PartNumber ASC"
     
         Try 
@@ -270,20 +251,7 @@ Public Module PartQueryService
 
                     Using reader As SqliteDataReader = cmd.ExecuteReader()
                         While reader.Read()
-                            Dim part As New PartRecord(
-                                partNum:=reader.GetString(
-                                    reader.GetOrdinal("PartNumber")
-                                ),
-                                desc:=reader.GetString(
-                                    reader.GetOrdinal("Description")
-                                ),
-                                cost:=reader.GetDouble(
-                                    reader.GetOrdinal("DealerCost")
-                                ),
-                                msrpVal:=reader.GetDouble(reader.GetOrdinal("MSRP")),
-                                catId:=reader.GetInt32(reader.GetOrdinal("CategoryID"))
-                            )
-                            results.Add(part)
+                            results.Add(MapReaderToPartRecord(reader))
                         End While
                     End Using
                 End Using
@@ -295,5 +263,52 @@ Public Module PartQueryService
         End Try
 
         Return results
+    End Function
+
+    ''' <summary>
+    ''' Recursively find the current active replacement part for the given part number.
+    ''' </summary>
+    Public Function GetActiveReplacement(partNum As String) As PartRecord 
+        Dim activePart As PartRecord = Nothing
+
+        Dim sql As String = "
+            WITH RECURSIVE SupersessionChain AS (
+                SELECT * FROM Parts WHERE UPPER(PartNumber) = UPPER(@partNum)
+                UNION ALL
+                SELECT p.* FROM Parts p
+                JOIN SupersessionChain sc 
+                  ON UPPER(p.PartNumber) = UPPER(sc.SupersededBy)
+            )
+            SELECT 
+                PartNumber, 
+                Description, 
+                DealerCost, 
+                MSRP, 
+                CategoryID, 
+                Revision, 
+                IsActive, 
+                SupersededBy
+            FROM SupersessionChain
+            WHERE IsActive = 1 LIMIT 1;"
+
+        Try
+            Using conn As SqliteConnection = GetOpenConnection()
+                Using cmd As New SqliteCommand(sql, conn)
+                    cmd.Parameters.AddWithValue("@partNum", partNum.Trim())
+
+                    Using reader As SqliteDataReader = cmd.ExecuteReader()
+                        If reader.Read() Then 
+                            activePart = MapReaderToPartRecord(reader)
+                        End If
+                    End Using 
+                End Using 
+            End Using
+        Catch e As Exception 
+            Console.WriteLine(
+                $"[Query Error - GetActiveReplacement]: {e.Message}"
+            )
+        End Try
+
+        Return activePart
     End Function
 End Module
